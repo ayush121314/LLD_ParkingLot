@@ -1,170 +1,304 @@
 <img width="8924" height="6863" alt="UML_1" src="https://github.com/user-attachments/assets/1741f9ef-97b1-426a-91e1-bfa0a49f9537" />
 
 
----
+
+
+
+
 
 # Parking Management System — Low Level Design
 
-This repository contains the **Low Level Design (LLD)** for a Parking Management System.
-The focus of this design is not implementation but **structure, responsibility, and flow** — how a real system would be organized internally before writing code.
+This repository contains the Low Level Design (LLD) for a **scalable Parking Management System**.
+The design focuses on **clear separation of responsibilities, extensibility, and real-world modeling** rather than code implementation.
 
-The objective was to model how parking, ticketing, fee calculation, and payment should work together in a clean and extensible system.
+The goal of this project is to demonstrate:
 
----
+* Design thinking
+* Pattern application
+* System decomposition
+* Object collaboration
 
-## Overview
-
-The system is designed around three major service areas:
-
-* Ticket Service
-* Fee Calculation Service
-* Payment Service
-
-Each service owns its own logic, and no service directly interferes with the internal workings of another. A central manager coordinates the workflow instead of business logic being scattered across the system.
+This is a design-first project aimed at interview readiness and architectural clarity.
 
 ---
 
-## Core Design Concepts
+## System Scope
 
-### Parking Structure
+This system models the lifecycle of a vehicle in a parking facility:
 
-The parking system is modeled using a hierarchical structure:
-
-* Parking Lot contains multiple Floors
-* Each Floor contains multiple Parking Spots
-* Each Spot has a size and availability status
-* Vehicles are allocated spots based on compatibility (no hardcoding)
-
-This makes it easy to scale from a single floor to multi-floor parking without redesign.
-
----
-
-### Ticket Management
-
-Ticket creation and lifecycle are handled by a dedicated service.
-
-Responsibilities include:
-
-* Ticket generation at entry
-* Tracking entry time
-* Recording allocated parking spot
-* Maintaining ticket state from entry to exit
-
-Tickets act as the primary reference throughout the system. All operations (fee calculation and payment) depend on ticket data instead of duplicating state elsewhere.
+* Vehicle entry and ticket creation
+* Parking slot selection using strategy
+* Ticket persistence
+* Fee calculation using factory + decorator
+* Payment processing with routing
+* Parking exit and ticket closure
+* Repository-based persistence
+* Display update mechanism
 
 ---
 
-### Fee Calculation Service
+## High-Level Flow
 
-Fee calculation is modeled as a standalone service.
+### Entry
 
-The design uses:
+1. Client requests parking.
+2. ParkingManager selects a spot using ParkingStrategy.
+3. ParkingSpot parks the vehicle.
+4. TicketManager creates and saves a ticket.
+5. Ticket is returned to the client.
 
-* **Factory Pattern** to select the appropriate fee rule
-* **Decorator Pattern** to layer pricing rules dynamically
+### Exit
 
-This allows fee logic such as base pricing, weekend rates, surcharge policies, etc., to be added without modifying existing code.
-
-The service is independent from ticket creation and payment processing. It only depends on ticket data and returns a computed amount.
-
----
-
-### Payment Service
-
-Payment handling is isolated in its own service layer.
-
-The design supports:
-
-* Multiple payment methods via a common interface
-* Retry-safe workflows
-* Failure handling without breaking ticket flow
-
-A key part of the design is **idempotent payment processing**, which ensures that:
-
-* Duplicate requests do not cause double charges
-* Payment retries do not create inconsistent states
-* Each transaction is uniquely identifiable
-
-Payment is treated as a state-driven process instead of a single API call.
+1. Client provides ticket ID.
+2. TicketManager retrieves ticket.
+3. Fee calculator is selected using factory.
+4. Fee decorators apply dynamic pricing.
+5. Payment routed to correct service.
+6. Payment persisted.
+7. Spot is freed.
+8. Ticket is marked complete.
 
 ---
 
-### Central Orchestration (ParkingManager)
+## Architecture Overview
 
-Rather than allowing services to call each other directly, the system uses a central manager.
+### Core Orchestrator
 
-Responsibilities:
-
-* Controls vehicle entry and exit flow
-* Coordinates ticket creation
-* Triggers fee calculation
-* Initiates payment settlement
-
-This prevents tight coupling between services and keeps control flow explicit and traceable.
+* **ParkingManager**
+  Central controller for entry and exit flows.
 
 ---
 
-### Persistence Layer (Repositories)
+### Ticket System
 
-Each major entity is backed by a repository:
+**Entities**
 
-* Ticket Repository
-* Payment Repository
-* Parking Spot Repository
-* Floor Repository
+* Ticket
 
-The domain logic never directly talks to storage. All persistence operations go through repositories, making the design easier to maintain and test.
+**Manager**
 
----
+* TicketManager
 
-## Design Goals
+**Persistence**
 
-The design was built with these goals in mind:
+* TicketRepository
 
-* Clear separation of responsibilities
-* Minimal coupling between modules
-* Ease of extension without rewriting core logic
-* Clean ownership of data
-* Predictable system behavior under retries and failures
+**Responsibilities**
+
+* Ticket creation
+* Status updates
+* Ticket lookup
+* Payment reference tracking
 
 ---
 
-## UML Diagram
+### Parking System
 
-The UML diagram in this repository represents:
+**Core Models**
 
-* Domain entities
-* Service boundaries
-* Design pattern usage
-* Relationships between components
-* Responsibility distribution
+* ParkingLot
+* ParkingFloor
+* ParkingSpot
+* SpotInfo
 
-It is intended as a design artifact, not as a class-by-class code map.
+**Repositories**
 
----
+* FloorRepository
+* SpotInfoRepository
 
-## What This Project Focuses On
+**Responsibilities**
 
-This repository does not include code.
-It is purely focused on:
-
-* Architecture
-* Responsibility modeling
-* Flow correctness
-* Design clarity
+* Floor management
+* Spot metadata management
+* Occupancy control
+* Real-time availability tracking
+* Display notifications
 
 ---
 
-## Why This Design Exists
+### Strategy System (Parking Spot Selection)
 
-The goal of this project was to practice building systems the way they exist in production, not just as academic diagrams.
+**Interface**
 
-It helped develop a clearer understanding of:
+* ParkingStrategy
 
-* How design evolves from failure scenarios
-* Why boundaries matter
-* How services should interact
-* Where complexity truly lives in backend systems
+**Implementations**
+
+* FirstAvailable
+* BestFit
+
+**Responsibility**
+
+* Dynamically choose optimal parking spot without changing core logic.
 
 ---
+
+### Fee Calculation System
+
+Uses a combination of **Factory + Strategy + Decorator**.
+
+**Entry Point**
+
+* CalculateFee
+
+**Factory**
+
+* FeeCalcFactory (Singleton)
+
+**Interface**
+
+* FeeCalculator
+
+**Base Calculators**
+
+* LiveTicketFee
+* ExpiredFee
+
+**Decorator**
+
+* TicketDecorator
+
+**Decorators**
+
+* WeekendFee
+* RainFee
+* SurchargeFee
+
+**Responsibility**
+
+* Construct pricing logic dynamically.
+* Avoid condition-heavy fee calculation logic.
+* Enable extension without modification.
+
+---
+
+### Payment System
+
+**Entity**
+
+* Payment
+
+**Manager**
+
+* PaymentManager
+
+**Router (Factory)**
+
+* PaymentRouter
+
+**Services**
+
+* UPIService
+* CardService
+* CashService
+
+**Persistence**
+
+* PaymentRepository
+
+**Responsibilities**
+
+* Idempotent payment handling
+* Retry tracking
+* Provider integration abstraction
+* Payment state transitions
+
+---
+
+## Design Patterns Used
+
+| Area                     | Pattern    |
+| ------------------------ | ---------- |
+| Parking strategy         | Strategy   |
+| Payment routing          | Factory    |
+| Fee calculator selection | Factory    |
+| Fee logic extension      | Decorator  |
+| Display updates          | Observer   |
+| Persistence layer        | Repository |
+| System coordination      | Facade     |
+| FeeCalcFactory           | Singleton  |
+
+---
+
+## Directory-Style Flow Visualization
+
+### Entry
+
+```
+Client
+ └── ParkingManager
+       ├── ParkingStrategy
+       │     └── ParkingSpot (park)
+       └── TicketManager
+             └── TicketRepository (save)
+```
+
+### Exit
+
+```
+Client
+ └── ParkingManager
+       ├── TicketManager (getTicket)
+       ├── FeeCalcFactory
+       │     └── FeeCalculator (Decorators)
+       ├── PaymentManager
+       │     ├── PaymentRouter
+       │     │     └── PaymentService
+       │     └── PaymentRepository (save)
+       └── ParkingSpot (unpark)
+```
+
+---
+
+## Key Design Decisions
+
+### Strong Separation of Responsibilities
+
+Each system handles:
+
+* One core responsibility
+* One form of orchestration
+* One persistence role
+
+---
+
+### Explicit Dependency Flow
+
+* No cross-layer coupling
+* No circular dependencies
+* Managers use repositories, not vice-versa
+* Strategies have no persistence
+
+---
+
+### Extensibility
+
+* New pricing rules can be added as decorators
+* New payment methods can be introduced without changing clients
+* New parking allocation strategies can be added with zero core change
+
+---
+
+### Thread Safety Consideration
+
+* ParkingSpot owns its locking mechanism.
+* Concurrency contention is isolated per spot.
+* No lock escalation at system level.
+
+---
+
+## What Is Intentionally Not Included
+
+This design does not include:
+
+* REST APIs
+* Databases
+* UI logic
+* Authentication
+* Infra setup
+
+This is **pure LLD**, not an implementation project.
+
+---
+
 
